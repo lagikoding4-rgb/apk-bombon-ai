@@ -1,0 +1,13 @@
+{
+  "appId": "com.bombon.ai",
+  "appName": "Bombon AI",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

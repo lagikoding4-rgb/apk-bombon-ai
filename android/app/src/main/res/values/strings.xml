@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bombon AI</string>
+    <string name="title_activity_main">Bombon AI</string>
+    <string name="package_name">com.bombon.ai</string>
+    <string name="custom_url_scheme">com.bombon.ai</string>
+</resources>
