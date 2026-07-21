@@ -892,11 +892,7 @@
       if(otherBtn) otherBtn.classList.remove('active');
       btn.classList.toggle('active');
     } else if(act === 'speak'){
-      if(!window.speechSynthesis) { alert('Perangkat ini gak dukung text-to-speech.'); return; }
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'id-ID';
-      window.speechSynthesis.speak(utter);
+      speakText(text).catch(err => alert(err.message));
     } else if(act === 'share'){
       if(navigator.share){
         navigator.share({ title: 'Bombon AI', text }).catch(()=>{});
@@ -1226,6 +1222,35 @@
   });
 
   /* ---------- NEW: voice input (dikte) & mode telepon ---------- */
+  function hasNativeTTS(){
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+      && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech);
+  }
+
+  async function speakText(text){
+    if(hasNativeTTS()){
+      await window.Capacitor.Plugins.TextToSpeech.speak({ text, lang: 'id-ID', rate: 1.0, pitch: 1.0, volume: 1.0 });
+      return;
+    }
+    if(!window.speechSynthesis) throw new Error('Perangkat ini gak dukung text-to-speech.');
+    return new Promise(resolve=>{
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'id-ID';
+      utter.onend = resolve;
+      utter.onerror = resolve;
+      window.speechSynthesis.speak(utter);
+    });
+  }
+
+  function stopSpeaking(){
+    if(hasNativeTTS()){
+      window.Capacitor.Plugins.TextToSpeech.stop().catch(()=>{});
+      return;
+    }
+    window.speechSynthesis?.cancel();
+  }
+
   function hasNativeSpeech(){
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
       && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition);
@@ -1309,21 +1334,13 @@
   callAvatar.addEventListener('click', ()=>{
     if(callAvatar.classList.contains('speaking')){
       callInterrupted = true;
-      window.speechSynthesis?.cancel();
+      stopSpeaking();
     }
   });
 
   function speakAndWait(text){
-    return new Promise(resolve=>{
-      if(!window.speechSynthesis){ resolve(); return; }
-      window.speechSynthesis.cancel();
-      const cleanText = text.replace(/```[\s\S]*?```/g, ' saya sudah tulis kodenya di layar. ');
-      const utter = new SpeechSynthesisUtterance(cleanText);
-      utter.lang = 'id-ID';
-      utter.onend = resolve;
-      utter.onerror = resolve;
-      window.speechSynthesis.speak(utter);
-    });
+    const cleanText = text.replace(/```[\s\S]*?```/g, ' saya sudah tulis kodenya di layar. ');
+    return speakText(cleanText).catch(()=>{});
   }
 
   async function callLoop(){
@@ -1375,7 +1392,7 @@
   });
   callEndBtn.addEventListener('click', ()=>{
     callActive = false;
-    window.speechSynthesis?.cancel();
+    stopSpeaking();
     callOverlay.classList.remove('show');
     setCallState('');
     callStatus.textContent = 'Menghubungkan...';
