@@ -619,6 +619,64 @@
     ? window.supabase.createClient(window.BOMBON_CONFIG.SUPABASE_URL, window.BOMBON_CONFIG.SUPABASE_ANON_KEY)
     : null;
 
+  /* ---------- Presence / activity tracker (real-time, bukan tebakan) ---------- */
+  let bombonHeartbeatTimer = null;
+
+  async function bombonStartTracking() {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.rpc('bombon_session_start');
+    } catch (e) {
+      console.warn('bombon_session_start gagal:', e);
+    }
+    if (bombonHeartbeatTimer) clearInterval(bombonHeartbeatTimer);
+    // heartbeat tiap 20 detik selagi app di depan (foreground)
+    bombonHeartbeatTimer = setInterval(async () => {
+      try { await supabaseClient.rpc('bombon_heartbeat'); }
+      catch (e) { console.warn('heartbeat gagal:', e); }
+    }, 20000);
+  }
+
+  async function bombonStopTracking() {
+    if (bombonHeartbeatTimer) {
+      clearInterval(bombonHeartbeatTimer);
+      bombonHeartbeatTimer = null;
+    }
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.rpc('bombon_session_end');
+    } catch (e) {
+      console.warn('bombon_session_end gagal:', e);
+    }
+  }
+
+  // Native app dibuka lagi dari background / ditutup ke background
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+    window.Capacitor.Plugins.App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        bombonStartTracking();
+      } else {
+        bombonStopTracking();
+      }
+    });
+  }
+
+  // Fallback untuk versi web/browser (bukan APK native)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      bombonStopTracking();
+    } else {
+      bombonStartTracking();
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    // best-effort, browser mungkin memotong request ini
+    if (supabaseClient) {
+      navigator.sendBeacon &&
+        supabaseClient.rpc('bombon_session_end'); // fallback ke pg_cron kalau gagal
+    }
+  });
+
   function enterAppWithUser(user){
     const meta = user.user_metadata || {};
     const name = meta.full_name || meta.name || user.email || 'Pengguna';
@@ -642,6 +700,8 @@
       addMessage('ai', '<p>Halo! Bombon AI di sini, ada yang bisa saya bantu? 😊</p>');
     }
     if(typeof renderHistoryList === 'function') renderHistoryList();
+
+    bombonStartTracking();
   }
 
   const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -695,6 +755,7 @@
   document.getElementById('sidebarFooter').addEventListener('click', async ()=>{
     if(!supabaseClient) return;
     if(confirm('Keluar dari Bombon AI?')){
+      await bombonStopTracking();
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
