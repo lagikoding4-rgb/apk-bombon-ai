@@ -1,5 +1,5 @@
 window.BOMBON_CONFIG = {
   SUPABASE_URL: "https://wbcqscyxhgihkhhvhhxs.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_vs-OzpnoFRsDrJJ1yYhd1A_mFgnsP51",
-  API_BASE: "https://glittery-palmier-259c18.netlify.app"
+  API_BASE: "https://bombonai.netlify.app"
 };
